@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tappie Warehouse Scanner</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --ink:#0c1b2a; --paper:#f4f1ea; --water:#1b8a9b; --water-deep:#0f5b67;
+    --mist:#dce8ea; --coral:#e2604b; --good:#2f8f5b; --line:#cdd6cf;
+    --shadow:0 10px 30px -12px rgba(12,27,42,.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
+  body{min-height:100dvh;display:flex;flex-direction:column;}
+  header{padding:18px 20px 16px;background:linear-gradient(135deg,var(--water-deep),var(--water));
+    color:#fff;position:relative;overflow:hidden;}
+  header:before{content:"";position:absolute;right:-40px;top:-60px;width:180px;height:180px;
+    border-radius:50%;background:rgba(255,255,255,.08);}
+  header h1{margin:0;font-size:19px;letter-spacing:.04em;font-weight:700;text-transform:uppercase;}
+  header p{margin:4px 0 0;font-size:12.5px;opacity:.85;letter-spacing:.02em;}
+  main{flex:1;padding:20px;display:flex;flex-direction:column;gap:18px;max-width:520px;margin:0 auto;width:100%;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;}
+  #reader{width:100%;background:#000;min-height:240px;position:relative;}
+  .scan-hint{padding:13px 16px;font-size:13px;color:var(--water-deep);
+    display:flex;align-items:center;gap:8px;border-top:1px solid var(--mist);background:#fbfdfd;}
+  .scan-hint .dot{width:9px;height:9px;border-radius:50%;background:var(--coral);animation:pulse 1.3s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+  .manual{display:flex;gap:8px;}
+  .manual input{flex:1;padding:14px;border:1px solid var(--line);border-radius:12px;font-size:16px;background:#fff;color:var(--ink);}
+  .manual input:focus{outline:none;border-color:var(--water);}
+  button{font-family:inherit;cursor:pointer;border:none;}
+  .btn{padding:14px 18px;border-radius:12px;font-size:15px;font-weight:700;letter-spacing:.02em;transition:transform .06s ease;}
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--water);color:#fff;}
+  .btn-ghost{background:var(--mist);color:var(--water-deep);}
+  .btn-coral{background:var(--coral);color:#fff;width:100%;}
+  .btn:disabled{filter:grayscale(.6) opacity(.6);cursor:not-allowed;}
+  .panel{padding:20px;display:none;}
+  .panel.show{display:block;animation:rise .25s ease;}
+  @keyframes rise{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .prod-name{font-size:22px;font-weight:700;line-height:1.2;margin:0 0 4px;}
+  .prod-meta{font-size:13px;color:#5c6b6e;margin:0 0 18px;}
+  .prod-meta b{color:var(--water-deep);font-size:15px;}
+  .kit-box{margin:0 0 18px;}
+  .kit-list{list-style:none;margin:0;padding:0;border:1px solid var(--mist);border-radius:12px;overflow:hidden;}
+  .kit-list li{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;font-size:14px;border-top:1px solid var(--mist);background:#fbfdfd;}
+  .kit-list li:first-child{border-top:none;}
+  .kit-list .qpk{color:#5c6b6e;font-size:12.5px;}
+  .kit-list .lvl{font-weight:700;color:var(--water-deep);font-size:13px;}
+  .kit-list .lvl.low{color:var(--coral);}
+  .kit-list .lvl.miss{color:#b23a28;}
+  .qty-label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#5c6b6e;margin-bottom:8px;}
+  .stepper{display:flex;align-items:stretch;gap:10px;margin-bottom:20px;}
+  .stepper button{width:60px;font-size:28px;font-weight:700;border-radius:12px;background:var(--mist);color:var(--water-deep);}
+  .stepper input{flex:1;text-align:center;font-size:34px;font-weight:700;border:1px solid var(--line);border-radius:12px;color:var(--ink);width:100%;}
+  .stepper input:focus{outline:none;border-color:var(--water);}
+  .feedback{padding:16px 18px;border-radius:12px;font-size:15px;font-weight:600;display:none;align-items:center;gap:10px;}
+  .feedback.show{display:flex;animation:rise .25s ease;}
+  .feedback.ok{background:#e7f4ec;color:var(--good);border:1px solid #bfe3cd;}
+  .feedback.err{background:#fbeae7;color:#b23a28;border:1px solid #f1c4bc;}
+  .feedback .big{font-size:18px;}
+  .fb-list{margin:8px 0 0;padding-left:18px;font-weight:500;font-size:13.5px;}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:rot .7s linear infinite;vertical-align:-2px;}
+  @keyframes rot{to{transform:rotate(360deg);}}
+  footer{text-align:center;font-size:11px;color:#9aa6a3;padding:14px;letter-spacing:.05em;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tappie Warehouse</h1>
+  <p>Scan to remove stock &middot; live count</p>
+</header>
+
+<main>
+  <div class="card">
+    <div id="reader"></div>
+    <div class="scan-hint"><span class="dot"></span><span id="hint">Point the camera at a barcode, QR code or SKU label</span></div>
+  </div>
+
+  <div class="manual">
+    <input id="manualCode" inputmode="text" placeholder="…or type a SKU / barcode" autocomplete="off">
+    <button class="btn btn-ghost" id="manualBtn">Find</button>
+  </div>
+
+  <div class="card panel" id="panel">
+    <h2 class="prod-name" id="prodName">—</h2>
+    <p class="prod-meta" id="prodMeta"></p>
+    <div id="kitBox" class="kit-box" style="display:none;">
+      <div class="qty-label" style="margin-bottom:6px;">This pack contains</div>
+      <ul id="kitList" class="kit-list"></ul>
+    </div>
+    <div class="qty-label">Quantity removed</div>
+    <div class="stepper">
+      <button id="minus">–</button>
+      <input id="qty" type="number" inputmode="numeric" min="1" value="1">
+      <button id="plus">+</button>
+    </div>
+    <button class="btn btn-coral" id="confirm">Remove from stock</button>
+  </div>
+
+  <div class="feedback" id="feedback"></div>
+</main>
+
+<footer>TAPPIE FILTERS &middot; INTERNAL USE</footer>
+
+<script>
+/* ============================================================
+   STEP 1 — PASTE YOUR APPS SCRIPT API URL BETWEEN THE QUOTES.
+   It is the /exec URL from deploying Code-API.gs as a web app.
+   Example: var API = "https://script.google.com/macros/s/AKfy..../exec";
+   ============================================================ */
+var API = "https://script.google.com/macros/s/AKfycbxpaJZpghzw_hkvOWWAmQkBP_p3V6O0n_a354Zm3YZaQitCOl2s6h-khEOuEy49uvf4/exec";
+
+/* ---- JSONP bridge: calls Apps Script cross-origin with no CORS issues ---- */
+var _jsonpId = 0;
+function call(action, params){
+  return new Promise(function(resolve, reject){
+    var cb = 'tappie_cb_' + (++_jsonpId);
+    var timer = setTimeout(function(){
+      cleanup(); reject('Timeout contacting the sheet. Check your connection.');
+    }, 15000);
+    function cleanup(){
+      clearTimeout(timer);
+      delete window[cb];
+      if (s && s.parentNode) s.parentNode.removeChild(s);
+    }
+    window[cb] = function(data){ cleanup(); resolve(data); };
+    var qs = 'action=' + encodeURIComponent(action) + '&callback=' + cb;
+    for (var k in params){ qs += '&' + k + '=' + encodeURIComponent(params[k]); }
+    var s = document.createElement('script');
+    s.src = API + '?' + qs;
+    s.onerror = function(){ cleanup(); reject('Could not reach the sheet API.'); };
+    document.body.appendChild(s);
+  });
+}
+
+var current=null, scanner=null, paused=false;
+var els = {
+  panel:document.getElementById('panel'), name:document.getElementById('prodName'),
+  meta:document.getElementById('prodMeta'), kitBox:document.getElementById('kitBox'),
+  kitList:document.getElementById('kitList'), qty:document.getElementById('qty'),
+  fb:document.getElementById('feedback'), hint:document.getElementById('hint'),
+  confirm:document.getElementById('confirm')
+};
+function showFb(kind,html){ els.fb.className='feedback show '+kind; els.fb.innerHTML=html; }
+function clearFb(){ els.fb.className='feedback'; els.fb.innerHTML=''; }
+
+function handleCode(code){
+  if(!code) return;
+  if(API.indexOf('PASTE_')===0){ showFb('err','⚠️ API URL not set in the page yet.'); return; }
+  paused=true; clearFb(); els.hint.textContent='Looking up '+code+'…';
+  call('lookup',{code:code}).then(function(r){
+    if(!r.ok){ showFb('err','⚠️ '+(r.error||'Error')); paused=false; return; }
+    if(!r.found){
+      els.panel.className='card panel';
+      showFb('err','<span class="big">⚠️</span> Barcode <b>'+code+'</b> not found in the sheet.');
+      els.hint.textContent='Scan another item'; paused=false; return;
+    }
+    current={code:r.code,name:r.name,isKit:!!r.isKit};
+    els.name.textContent=r.name; els.qty.value=1;
+    if(r.isKit){
+      els.meta.innerHTML='<span style="color:var(--coral);font-weight:700;">PACK</span> &middot; '+r.components.length+' components &nbsp;&middot;&nbsp; '+r.code;
+      els.kitList.innerHTML=r.components.map(function(c){
+        var lvl,cls='';
+        if(c.missing){ lvl='not in sheet'; cls='miss'; }
+        else { lvl=c.stock+' in stock'; if(c.stock<c.perKit) cls='low'; }
+        return '<li><span>'+c.name+' <span class="qpk">×'+c.perKit+' per pack</span></span><span class="lvl '+cls+'">'+lvl+'</span></li>';
+      }).join('');
+      els.kitBox.style.display='block';
+    } else {
+      els.meta.innerHTML='In stock: <b>'+r.stock+'</b> &nbsp;&middot;&nbsp; '+r.code;
+      els.kitBox.style.display='none';
+    }
+    els.panel.className='card panel show';
+    els.hint.textContent='Set quantity, then confirm';
+    if(navigator.vibrate) navigator.vibrate(40);
+  }).catch(function(e){ showFb('err','⚠️ '+e); paused=false; });
+}
+
+function clampQty(){ var v=parseInt(els.qty.value,10); if(isNaN(v)||v<1)v=1; els.qty.value=v; return v; }
+document.getElementById('plus').onclick=function(){ els.qty.value=clampQty()+1; };
+document.getElementById('minus').onclick=function(){ els.qty.value=Math.max(1,clampQty()-1); };
+els.qty.onchange=clampQty;
+
+els.confirm.onclick=function(){
+  if(!current) return;
+  var qty=clampQty();
+  els.confirm.disabled=true; els.confirm.innerHTML='<span class="spin"></span> Updating…';
+  call('remove',{code:current.code,qty:qty}).then(function(r){
+    els.confirm.disabled=false; els.confirm.textContent='Remove from stock';
+    if(!r.ok){ showFb('err','<span class="big">⚠️</span> '+r.error); return; }
+    if(!r.found){ showFb('err','<span class="big">⚠️</span> Item no longer in sheet.'); paused=false; return; }
+    els.panel.className='card panel';
+    var shortHtml='';
+    if(r.shortfalls && r.shortfalls.length){
+      shortHtml='<ul class="fb-list">'+r.shortfalls.map(function(s){
+        return '<li>Short '+s.short+' × '+s.name+(s.missing?' (not in sheet)':'')+'</li>';
+      }).join('')+'</ul>';
+    }
+    if(r.isKit){
+      var lines=r.components.map(function(c){ return c.removed+' × '+c.name+' ('+c.stock+' left)'; }).join('<br>');
+      if(r.shortfalls && r.shortfalls.length){
+        showFb('err','<span class="big">⚠️</span> Removed '+r.kitsRemoved+' × '+r.name+', but some parts ran short:'+shortHtml+'<div style="font-weight:500;font-size:12.5px;margin-top:8px;opacity:.8;">'+lines+'</div>');
+      } else {
+        showFb('ok','<span class="big">✓</span> Removed '+r.kitsRemoved+' × '+r.name+'.<div style="font-weight:500;font-size:12.5px;margin-top:8px;opacity:.85;">'+lines+'</div>');
+      }
+    } else {
+      if(r.shortfalls && r.shortfalls.length){
+        showFb('err','<span class="big">⚠️</span> Only removed '+r.removed+' × '+r.name+' ('+r.stock+' left).'+shortHtml);
+      } else {
+        showFb('ok','<span class="big">✓</span> Removed '+r.removed+' × '+r.name+'. <b>'+r.stock+'</b> left.');
+      }
+    }
+    els.hint.textContent='Scan the next item'; current=null;
+    if(navigator.vibrate) navigator.vibrate([30,40,30]); paused=false;
+  }).catch(function(e){
+    els.confirm.disabled=false; els.confirm.textContent='Remove from stock';
+    showFb('err','⚠️ '+e);
+  });
+};
+
+document.getElementById('manualBtn').onclick=function(){
+  var v=document.getElementById('manualCode').value.trim();
+  if(v){ handleCode(v); document.getElementById('manualCode').value=''; }
+};
+document.getElementById('manualCode').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){ e.preventDefault(); document.getElementById('manualBtn').click(); }
+});
+
+/* ---- camera ---- */
+function onScanSuccess(t){ if(paused) return; handleCode(t); }
+function startScanner(){
+  scanner=new Html5Qrcode('reader');
+  var config={fps:10,qrbox:{width:240,height:160},rememberLastUsedCamera:true,aspectRatio:1.3};
+  Html5Qrcode.getCameras().then(function(cams){
+    var camId=cams&&cams.length?cams[cams.length-1].id:null;
+    var src=camId?camId:{facingMode:'environment'};
+    scanner.start(src,config,onScanSuccess,function(){})
+      .then(hideCamPrompt).catch(function(){ showCamPrompt('Tap to start camera'); });
+  }).catch(function(){
+    scanner.start({facingMode:'environment'},config,onScanSuccess,function(){})
+      .then(hideCamPrompt).catch(function(){ showCamPrompt('Tap to start camera'); });
+  });
+}
+function showCamPrompt(msg){
+  els.hint.textContent=msg+' (or type the SKU below)';
+  var r=document.getElementById('reader');
+  if(!document.getElementById('camStart')){
+    var b=document.createElement('button');
+    b.id='camStart'; b.className='btn btn-primary';
+    b.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;';
+    b.textContent='📷 Start camera';
+    b.onclick=function(){ b.remove(); startScanner(); };
+    r.appendChild(b);
+  }
+}
+function hideCamPrompt(){
+  var b=document.getElementById('camStart'); if(b) b.remove();
+  els.hint.textContent='Point the camera at a barcode, QR code or SKU label';
+}
+window.addEventListener('load',startScanner);
+</script>
+</body>
+</html>
